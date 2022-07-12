@@ -92,6 +92,11 @@ class Ico(typing.NamedTuple):
                              color_map, image_data, map_data)
             images.append(image)
             images_data = images_data[len(bytes(image_info[-1])):]
+
+            #TODO: support more than 1 image per ico (currently seems to not always work...
+            break
+
+
         return cls(reserved, image_type, image_count, images)
 
 
