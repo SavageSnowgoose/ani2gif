@@ -1,41 +1,59 @@
+from dataclasses import dataclass
 import struct
-import typing
+
+class sized_type:
+    struct_type = ""
+
+class uint_1byte(int, sized_type):
+    struct_type = "B"
+class uint_2byte(int, sized_type):
+    struct_type = "H"
+class uint_4byte(int, sized_type):
+    struct_type = "I"
+class int_4byte(int, sized_type):
+    struct_type = "i"
 
 
-class Color(typing.NamedTuple):
-    blue: int
-    green: int
-    red: int
-    alpha: int
-
+class StructuredNamedTuple:
     def __bytes__(self):
-        return struct.pack(f"BBBB", self.blue, self.green, self.red, self.alpha)
+        return struct.pack(self.format_string(), *self.values())
+
+    def values(self):
+        return (v for k,v in self.__dict__.items() if k in self.__annotations__)
+
+    @classmethod
+    def format_string(cls):
+        format = ""
+        for field in cls.__annotations__.values():
+            assert issubclass(field, sized_type)
+            format += field.struct_type
+        return format
 
     @classmethod
     def from_bytes(cls, data):
-        fields = struct.unpack(f"BBBB", data[:4])
+        format = cls.format_string()
+        fields = struct.unpack(format, data[:struct.calcsize(format)])
         return cls(*fields)
 
 
-class BitmapInfoHeader(typing.NamedTuple):
-    header_size: int
-    width: int
-    height: int
-    color_planes: int
-    bits_per_pixel: int
-    compression_method: int
-    image_size: int
-    resolution_h: int
-    resolution_v: int
-    colors_in_pallete: int
-    important_colors: int
+@dataclass
+class Color(StructuredNamedTuple):
+    blue: uint_1byte
+    green: uint_1byte
+    red: uint_1byte
+    alpha: uint_1byte
 
-    def __bytes__(self):
-        return struct.pack(f"<IiiHHIIIIII", self.header_size, self.width, self.height, self.color_planes,
-                           self.bits_per_pixel, self.compression_method, self.image_size, self.resolution_h,
-                           self.resolution_h, self.colors_in_pallete, self.important_colors)
 
-    @classmethod
-    def from_bytes(cls, data):
-        fields = struct.unpack(f"<IIIHHIIIIII", data[:40])
-        return cls(*fields)
+@dataclass
+class BitmapInfoHeader(StructuredNamedTuple):
+    header_size: uint_4byte
+    width: int_4byte
+    height: int_4byte
+    color_planes: uint_2byte
+    bits_per_pixel: uint_2byte
+    compression_method: uint_4byte
+    image_size: uint_4byte
+    resolution_h: uint_4byte
+    resolution_v: uint_4byte
+    colors_in_pallete: uint_4byte
+    important_colors: uint_4byte

@@ -12,6 +12,9 @@ def make_gif(frames: typing.List[Ico]):
     height = frame.images[0].info.height
 
     MAX_COLOR = 0x7F
+
+    palette = frame.images[0].posterize(MAX_COLOR + 1)
+
     magic = b'GIF89a'
 
     output = b''
@@ -19,9 +22,9 @@ def make_gif(frames: typing.List[Ico]):
     output += struct.pack("<6sHHBBB", magic, width, height, 0xE6, MAX_COLOR, 0)
 
     gct = []
-    for i in frame.images[0].color_map:
+    for i in palette: #frame.images[0].color_map:
         gct.append(struct.pack("BBB", i.red, i.green, i.blue))
-    for i in range(16, 128):
+    for i in range(len(palette), MAX_COLOR + 1):
         gct.append(struct.pack("BBB", 0, 0, 0))
 
     output += b''.join(gct)
@@ -43,14 +46,15 @@ def make_gif(frames: typing.List[Ico]):
         lzw_header = struct.pack("B", 7)
         output += lzw_header
         index = 0
+        palettized_frame = frame.images[0].palettize(palette)
         for i in range(height):
             output += struct.pack("BB", width + 1, 0x80)
             row = []
             for j in range(width):
-                if frame.images[0].mask_data[index] == 1:
+                if frame.images[0].mask_data[index] == 1 or palette[palettized_frame[index]].alpha < 127:
                     row.append(MAX_COLOR)
                 else:
-                    row.append(frame.images[0].image_data[index])
+                    row.append(palettized_frame[index])
                 index += 1
             output += bytes(row)
             output += struct.pack("BB", 0x1, 0x81)
