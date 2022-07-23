@@ -61,16 +61,20 @@ class IcoImage(typing.NamedTuple):
                         new_color_map.append(Color(r << i, g << i, b << i, o << i))
                     return new_color_map
 
-    def palettize(self, new_color_map):
+    def palettize(self, new_color_map, transparency_index=-1, mask=None):
+        if transparency_index == -1:
+            transparency_index = len(new_color_map) - 1
         pixels = []
-        for i in self.image_data:
+        for index, i in enumerate(self.image_data):
             if self.bmp_header.bits_per_pixel <= 8:
                 color = self.color_map[i]
             elif self.bmp_header.bits_per_pixel == 32:
                 color = Color(*struct.unpack("BBBB", i.to_bytes(4, 'big')))
             else:
                 raise Exception
-            if color in new_color_map:
+            if color.alpha < 127 or mask and mask[index] == 1:
+                pixels.append(transparency_index)
+            elif color in new_color_map:
                 pixels.append(new_color_map.index(color))
             else:
                 # find nearest

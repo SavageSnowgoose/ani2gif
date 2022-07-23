@@ -3,7 +3,8 @@ import struct
 import typing
 
 from ani import Ani
-from ico import Ico
+from ico import Ico, Color
+import lzw
 
 
 def make_gif(frames: typing.List[Ico]):
@@ -11,15 +12,23 @@ def make_gif(frames: typing.List[Ico]):
     width = frame.images[0].info.width
     height = frame.images[0].info.height
 
-    MAX_COLOR = 0x7F
+    BITS_PER_PRIMARY_COLOR = 8
+    GCT_SIZE_BITS = 7
+    BACKGROUND_COLOR = MAX_COLOR = (1 << GCT_SIZE_BITS) - 1
+    PIXEL_ASPECT_RATIO_0_0 = 0
+    HAS_GCT = 1
+    SORTED = 0
 
-    palette = frame.images[0].posterize(MAX_COLOR + 1)
+    palette = frame.images[0].posterize(MAX_COLOR)
+    # expand the empty spots at the end of the palette
+    for i in range(len(palette), MAX_COLOR+1):
+        palette.append(Color(0, 0, 0, 255))
 
     magic = b'GIF89a'
 
     output = b''
 
-    output += struct.pack("<6sHHBBB", magic, width, height, 0xE6, MAX_COLOR, 0)
+    output += struct.pack("<6sHHBBB", magic, width, height, HAS_GCT << 7 | (BITS_PER_PRIMARY_COLOR-1) << 4 | SORTED << 3 | (GCT_SIZE_BITS-1), BACKGROUND_COLOR, PIXEL_ASPECT_RATIO_0_0)
 
     gct = []
     for i in palette: #frame.images[0].color_map:
@@ -29,36 +38,37 @@ def make_gif(frames: typing.List[Ico]):
 
     output += b''.join(gct)
 
-    gce_ani_ext = struct.pack("<2sB11sBBHB", b'!\xff', 11, b'NETSCAPE2.0', 3, 1, 65535, 0)
+    REPETITIONS = 65535
+
+    BLOCK_END = 0
+
+    gce_ani_ext = struct.pack("<2sB11sBBHB", b'!\xff', 11, b'NETSCAPE2.0', 3, 1, REPETITIONS, BLOCK_END)
 
     output += gce_ani_ext
 
     for frame in frames:
-
-        gce_block = struct.pack('<2sBBHBB', b'!\xf9', 4, 0x4 | 0x1, 9, MAX_COLOR, 0)
+        TRANSPARENT_BACKGROUND = 1
+        DISPOSAL_METHOD = 2
+        frame_delay_hundredths = 9
+        gce_block_inner = struct.pack('<BHB', DISPOSAL_METHOD << 2 | TRANSPARENT_BACKGROUND, frame_delay_hundredths, MAX_COLOR)
+        gce_block = struct.pack('<2sB%dsB' % len(gce_block_inner), b'!\xf9', len(gce_block_inner), gce_block_inner, 0)
 
         output += gce_block
 
-        image_descriptor_block = struct.pack('<BHHHHB', 0x2c, 0, 0, width, height, 0)
+        local_color_table_size = 0
+
+        IMAGE_SEPARATOR = 0x2c
+        left = top = 0
+
+        image_descriptor_block = struct.pack('<BHHHHB', IMAGE_SEPARATOR, left, top, width, height, local_color_table_size)
 
         output += image_descriptor_block
 
-        lzw_header = struct.pack("B", 7)
-        output += lzw_header
-        index = 0
-        palettized_frame = frame.images[0].palettize(palette)
-        for i in range(height):
-            output += struct.pack("BB", width + 1, 0x80)
-            row = []
-            for j in range(width):
-                if frame.images[0].mask_data[index] == 1 or palette[palettized_frame[index]].alpha < 127:
-                    row.append(MAX_COLOR)
-                else:
-                    row.append(palettized_frame[index])
-                index += 1
-            output += bytes(row)
-            output += struct.pack("BB", 0x1, 0x81)
-        output += b'\0'
+        # TODO: move the mask processing to ICO decoding to turn ICO into RGBA
+        palettized_frame = frame.images[0].palettize(palette, mask=frame.images[0].mask_data)
+
+        output += lzw.encode(palettized_frame, max_compression_bits=1, palette_size=len(palette))
+
     output += b'\x3B'  # EOF
     return output
 
