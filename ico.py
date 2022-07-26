@@ -1,6 +1,7 @@
 import struct
 import typing
 
+from bitstream import Bitstream
 from bmp import BitmapInfoHeader, Color
 
 
@@ -91,31 +92,6 @@ class IcoImage(typing.NamedTuple):
                         best = index
                 pixels.append(best)
         return pixels
-
-
-class Bitstream:
-    def __init__(self, buffer):
-        self.buffer = buffer
-        self.remainder = 8 if len(buffer) else 0
-
-    def pop_bits(self, bits):
-        result = 0
-        while bits >= self.remainder:
-            result = result << self.remainder
-            result += self.buffer[0] & (0xFF >> (8-self.remainder))
-            bits -= self.remainder
-            self.remainder = 8
-            self.buffer = self.buffer[1:]
-        if bits:
-            result = result << bits
-            result += (self.buffer[0] & (0xFF >> (8-self.remainder))) >> (self.remainder - bits)
-            self.remainder -= bits
-        return result
-
-    def remaining_buffer(self):
-        if self.remainder < 8:
-            return self.buffer[1:]
-        return self.buffer
 
 
 class Ico(typing.NamedTuple):

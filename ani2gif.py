@@ -67,7 +67,7 @@ def make_gif(frames: typing.List[Ico]):
         # TODO: move the mask processing to ICO decoding to turn ICO into RGBA
         palettized_frame = frame.images[0].palettize(palette, mask=frame.images[0].mask_data)
 
-        output += lzw.encode(palettized_frame, max_compression_bits=1, palette_size=len(palette))
+        output += lzw.encode(palettized_frame, max_compression_bits=100, palette_size=len(palette))
 
     output += b'\x3B'  # EOF
     return output
