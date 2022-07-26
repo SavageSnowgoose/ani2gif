@@ -59,7 +59,7 @@ class IcoImage(typing.NamedTuple):
                 if len(palette) <= color_count:
                     new_color_map = []
                     for r, g, b, o in palette:
-                        new_color_map.append(Color(r << i, g << i, b << i, o << i))
+                        new_color_map.append(Color(r << i, g << i, b << i, o << max(i, alpha_bits)))
                     return new_color_map
 
     def palettize(self, new_color_map, transparency_index=-1, mask=None):
@@ -73,7 +73,7 @@ class IcoImage(typing.NamedTuple):
                 color = Color(*struct.unpack("BBBB", i.to_bytes(4, 'big')))
             else:
                 raise Exception
-            if color.alpha < 127 or mask and mask[index] == 1:
+            if color.alpha < 128 or mask and mask[index] == 1:
                 pixels.append(transparency_index)
             elif color in new_color_map:
                 pixels.append(new_color_map.index(color))
@@ -85,7 +85,7 @@ class IcoImage(typing.NamedTuple):
                     new_margin = max(max(color.red, palette_color.red)-min(color.red, palette_color.red),
                                  max(color.green, palette_color.green)-min(color.green, palette_color.green),
                                  max(color.blue, palette_color.blue)-min(color.blue, palette_color.blue),
-                                 max(color.alpha, palette_color.alpha)-min(color.alpha, palette_color.alpha)
+                                 #max(color.alpha, palette_color.alpha)-min(color.alpha, palette_color.alpha)
                                      )
                     if new_margin < margin:
                         margin = new_margin

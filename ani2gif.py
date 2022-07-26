@@ -13,11 +13,13 @@ def make_gif(frames: typing.List[Ico]):
     height = frame.images[0].info.height
 
     BITS_PER_PRIMARY_COLOR = 8
-    GCT_SIZE_BITS = 7
+    GCT_SIZE_BITS = 8
     BACKGROUND_COLOR = MAX_COLOR = (1 << GCT_SIZE_BITS) - 1
     PIXEL_ASPECT_RATIO_0_0 = 0
     HAS_GCT = 1
     SORTED = 0
+
+    # todo: reduce palette size if input image uses a small number of colors.
 
     palette = frame.images[0].posterize(MAX_COLOR)
     # expand the empty spots at the end of the palette
