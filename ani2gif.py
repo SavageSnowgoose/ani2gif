@@ -2,29 +2,34 @@ import argparse
 import struct
 import typing
 
-from ani import Ani
+from ani import Ani, AniFrame
 from ico import Ico, Color
 import lzw
 
 
-def make_gif(frames: typing.List[Ico]):
+def make_gif(frames: typing.List[AniFrame]):
     frame = frames[0]
-    width = frame.images[0].info.width
-    height = frame.images[0].info.height
+    width = frame.ico.images[0].info.width
+    height = frame.ico.images[0].info.height
 
     BITS_PER_PRIMARY_COLOR = 8
     GCT_SIZE_BITS = 8
-    BACKGROUND_COLOR = MAX_COLOR = (1 << GCT_SIZE_BITS) - 1
+    MAX_COLOR = (1 << GCT_SIZE_BITS) - 1
     PIXEL_ASPECT_RATIO_0_0 = 0
     HAS_GCT = 1
     SORTED = 0
 
-    # todo: reduce palette size if input image uses a small number of colors.
+    palette = frame.ico.images[0].posterize(MAX_COLOR)
 
-    palette = frame.images[0].posterize(MAX_COLOR)
+    # reduce palette size if input image uses a small number of colors.
+    while len(palette) <= (1 << (GCT_SIZE_BITS-1)):
+        GCT_SIZE_BITS -= 1
+
+    BACKGROUND_COLOR = (1 << GCT_SIZE_BITS) - 1
+
     # expand the empty spots at the end of the palette
     for i in range(len(palette), MAX_COLOR+1):
-        palette.append(Color(0, 0, 0, 255))
+        palette.append(Color(0, 0, 0, 0))
 
     magic = b'GIF89a'
 
@@ -51,7 +56,7 @@ def make_gif(frames: typing.List[Ico]):
     for frame in frames:
         TRANSPARENT_BACKGROUND = 1
         DISPOSAL_METHOD = 2
-        frame_delay_hundredths = 9
+        frame_delay_hundredths = int(100*frame.post_delay/60)
         gce_block_inner = struct.pack('<BHB', DISPOSAL_METHOD << 2 | TRANSPARENT_BACKGROUND, frame_delay_hundredths, MAX_COLOR)
         gce_block = struct.pack('<2sB%dsB' % len(gce_block_inner), b'!\xf9', len(gce_block_inner), gce_block_inner, 0)
 
@@ -67,7 +72,7 @@ def make_gif(frames: typing.List[Ico]):
         output += image_descriptor_block
 
         # TODO: move the mask processing to ICO decoding to turn ICO into RGBA
-        palettized_frame = frame.images[0].palettize(palette, mask=frame.images[0].mask_data)
+        palettized_frame = frame.ico.images[0].palettize(palette, mask=frame.ico.images[0].mask_data)
 
         output += lzw.encode(palettized_frame, max_compression_bits=100, palette_size=len(palette))
 

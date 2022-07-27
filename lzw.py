@@ -45,7 +45,6 @@ def encode(pixels, max_compression_bits=None, palette_size=256, extra_entries=((
     for i in extra_entries:
         dictionary.append(i)
     index = 0
-    last_entry = None
 
     current_bits = palette_size_bits + 1
     output_bitstream.push_bits(dictionary.index(("CLEAR",)), current_bits)

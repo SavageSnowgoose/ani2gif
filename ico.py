@@ -35,32 +35,36 @@ class IcoImage(typing.NamedTuple):
     def posterize(self, color_count, alpha_bits=1):
         if len(self.color_map) and color_count >= len(self.color_map):
             return self.color_map
-        if self.bmp_header.bits_per_pixel <= 8:
-            raise Exception
-        elif self.bmp_header.bits_per_pixel < 32:
-            raise Exception
-        else:
-            for i in range(8):
-                palette = set()
-                for index, j in enumerate(self.image_data):
-                    r,g,b,o = struct.unpack("BBBB", j.to_bytes(4, 'big'))
-                    r = r >> i
-                    g = g >> i
-                    b = b >> i
-                    o = o >> max(i, alpha_bits)
-                    if (o < (255 >> max(i, alpha_bits))) or (self.mask_data[index] == 1):
-                        # is transparent, so make it a consistent shade
-                        r = g = b = 0
-                        o = 0
-                    #o = 0
-                    palette.add((r,g,b,o))
-                    if len(palette) > color_count:
-                        break
-                if len(palette) <= color_count:
-                    new_color_map = []
-                    for r, g, b, o in palette:
-                        new_color_map.append(Color(r << i, g << i, b << i, o << max(i, alpha_bits)))
-                    return new_color_map
+        for i in range(8):
+            palette = set()
+            for index, j in enumerate(self.image_data):
+                if self.bmp_header.bits_per_pixel <= 8:
+                    r,g,b,a = self.color_map[j].values()
+                elif self.bmp_header.bits_per_pixel == 24:
+                    r,g,b = struct.unpack("BBB", j.to_bytes(3, 'big'))
+                    a = 255
+                elif self.bmp_header.bits_per_pixel == 32:
+                    r,g,b,a = struct.unpack("BBBB", j.to_bytes(4, 'big'))
+                else:
+                    raise NotImplemented
+
+                r = r >> i
+                g = g >> i
+                b = b >> i
+                if (a < 128) or (self.mask_data[index] == 1):
+                    # is transparent, so make it a consistent shade
+                    r = g = b = 0
+                    a = 0
+                else:
+                    a = a >> max(i, 8-alpha_bits)
+                palette.add((r,g,b,a))
+                if len(palette) > color_count:
+                    break
+            if len(palette) <= color_count:
+                new_color_map = []
+                for r, g, b, a in palette:
+                    new_color_map.append(Color(r << i, g << i, b << i, a << max(i, 8-alpha_bits)))
+                return new_color_map
 
     def palettize(self, new_color_map, transparency_index=-1, mask=None):
         if transparency_index == -1:

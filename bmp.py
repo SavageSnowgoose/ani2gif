@@ -41,7 +41,7 @@ class Color(StructuredNamedTuple):
     blue: uint_1byte
     green: uint_1byte
     red: uint_1byte
-    alpha: uint_1byte
+    alpha: uint_1byte = 255
 
 
 @dataclass
