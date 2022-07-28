@@ -21,11 +21,11 @@ def make_gif(frames: typing.List[AniFrame]):
 
     palette = frame.ico.images[0].posterize(MAX_COLOR)
 
-    # reduce palette size if input image uses a small number of colors.
-    while len(palette) <= (1 << (GCT_SIZE_BITS-1)):
+    # reduce palette size if input image uses a small number of colors, leaving room for a transparent one.
+    while len(palette)+1 <= (1 << (GCT_SIZE_BITS-1)):
         GCT_SIZE_BITS -= 1
 
-    BACKGROUND_COLOR = (1 << GCT_SIZE_BITS) - 1
+    BACKGROUND_COLOR = MAX_COLOR = (1 << GCT_SIZE_BITS) - 1
 
     # expand the empty spots at the end of the palette
     for i in range(len(palette), MAX_COLOR+1):
