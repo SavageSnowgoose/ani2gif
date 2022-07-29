@@ -75,6 +75,8 @@ class IcoImage(typing.NamedTuple):
                 color = self.color_map[i]
             elif self.bmp_header.bits_per_pixel == 32:
                 color = Color(*struct.unpack("BBBB", i.to_bytes(4, 'big')))
+            elif self.bmp_header.bits_per_pixel == 24:
+                color = Color(*struct.unpack("BBB", i.to_bytes(3, 'big')))
             else:
                 raise Exception
             if color.alpha < 128 or mask and mask[index] == 1:
