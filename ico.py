@@ -114,9 +114,10 @@ class Ico(typing.NamedTuple):
         reserved, image_type, image_count = struct.unpack("<HHH", data[:6])
         images = []
         images_data = data[6:]
-        for i in range(image_count):
+        for _ in range(image_count):
             image_info = IcoImageInfo.from_bytes(images_data)
             bmp_header = BitmapInfoHeader.from_bytes(data[image_info.data_offset:image_info.data_offset+40])
+            # now repeat with the deciphered size
             bmp_header = BitmapInfoHeader.from_bytes(data[image_info.data_offset:image_info.data_offset+bmp_header.header_size])
             remainder = data[image_info.data_offset+bmp_header.header_size:image_info.data_offset+image_info.data_size]
             color_map = []
@@ -129,11 +130,20 @@ class Ico(typing.NamedTuple):
                     remainder = remainder[4:]
             image_data = []
             rows = []
+            #FUTURE: there must be a flag/version etc that indicates to round or not... but this seems to work for now
+            round_to_dword = (bmp_header.image_size == (((bmp_header.width * bmp_header.bits_per_pixel) + (32 - ((bmp_header.width * bmp_header.bits_per_pixel) % 32))) >> 3) * (bmp_header.height >> 1)) and \
+                             (bmp_header.image_size + (((bmp_header.width * 1) + (32 - ((bmp_header.width * 1) % 32))) >> 3) * (bmp_header.height >> 1)) == len(remainder)
+
             bitstream = Bitstream(remainder)
             for i in range(bmp_header.height>>1):
                 row = []
                 for j in range(bmp_header.width):
                     row.append(bitstream.pop_bits(bmp_header.bits_per_pixel))
+                if round_to_dword:
+                    # rows always round to nearest 4 bytes
+                    excess_bits = 32 - ((bmp_header.width * bmp_header.bits_per_pixel) % 32)
+                    if excess_bits:
+                        bitstream.pop_bits(excess_bits)
                 rows.append(row)
             remainder = bitstream.remaining_buffer()
             rows.reverse()
@@ -144,15 +154,16 @@ class Ico(typing.NamedTuple):
             else:
                 map_data = []
                 rows = []
-                index = 7
+                bitstream = Bitstream(remainder)
                 for i in range(bmp_header.height>>1):
                     row = []
                     for j in range(bmp_header.width):
-                        row.append((remainder[0] >> index) & 1)
-                        if index == 0:
-                            remainder = remainder[1:]
-                            index = 8
-                        index -= 1
+                        row.append(bitstream.pop_bits(1))
+                    if round_to_dword:
+                        # rows always round to nearest 4 bytes
+                        excess_bits = 32 - ((bmp_header.width * 1) % 32)
+                        if excess_bits:
+                            bitstream.pop_bits(excess_bits)
                     rows.append(row)
                 rows.reverse()
                 for row in rows:

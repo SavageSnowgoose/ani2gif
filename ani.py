@@ -25,7 +25,7 @@ class Ani:
         assert file_type == b'ACON'
 
     @property
-    def frames(self) -> typing.List[Ico]:
+    def frames(self) -> typing.List[AniFrame]:
         frames = []
         seq = None
         rate = None
@@ -33,15 +33,15 @@ class Ani:
         for chunk in self.riff.subChunks:
             if chunk.ckID == b'anih':
                 _, frame_count, step_count, _, _, _, _, default_rate, flags = struct.unpack("<IIIIIIIII", chunk.ckData)
-            if chunk.ckID == b'LIST' and chunk.identifier == b'fram':
+            elif chunk.ckID == b'LIST' and chunk.identifier == b'fram':
                 # process the frames
                 for subChunk in chunk.subChunks:
                     frames.append(AniFrame(Ico.from_bytes(subChunk.ckData), default_rate))
-            if chunk.ckID == b'rate':
+            elif chunk.ckID == b'rate':
                 rate = []
                 for i in range(0, chunk.ckSize, 4):
                     rate.append(int.from_bytes(chunk.ckData[i:i+4], 'little'))
-            if chunk.ckID == b'seq ':
+            elif chunk.ckID == b'seq ':
                 seq = []
                 for i in range(0, chunk.ckSize, 4):
                     seq.append(int.from_bytes(chunk.ckData[i:i+4], 'little'))
