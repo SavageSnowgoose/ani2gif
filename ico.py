@@ -110,7 +110,7 @@ class Ico(typing.NamedTuple):
         return struct.pack(f"HHH", self.reserved, self.image_type, self.image_count)
 
     @classmethod
-    def from_bytes(cls, data):
+    def from_bytes(cls, data, verbose=False):
         reserved, image_type, image_count = struct.unpack("<HHH", data[:6])
         images = []
         images_data = data[6:]
@@ -130,20 +130,16 @@ class Ico(typing.NamedTuple):
                     remainder = remainder[4:]
             image_data = []
             rows = []
-            #FUTURE: there must be a flag/version etc that indicates to round or not... but this seems to work for now
-            round_to_dword = (bmp_header.image_size == (((bmp_header.width * bmp_header.bits_per_pixel) + (32 - ((bmp_header.width * bmp_header.bits_per_pixel) % 32))) >> 3) * (bmp_header.height >> 1)) and \
-                             (bmp_header.image_size + (((bmp_header.width * 1) + (32 - ((bmp_header.width * 1) % 32))) >> 3) * (bmp_header.height >> 1)) == len(remainder)
 
             bitstream = Bitstream(remainder)
             for i in range(bmp_header.height>>1):
                 row = []
                 for j in range(bmp_header.width):
                     row.append(bitstream.pop_bits(bmp_header.bits_per_pixel))
-                if round_to_dword:
-                    # rows always round to nearest 4 bytes
-                    excess_bits = 32 - ((bmp_header.width * bmp_header.bits_per_pixel) % 32)
-                    if excess_bits:
-                        bitstream.pop_bits(excess_bits)
+                excess_bits = (32 - ((bmp_header.width * bmp_header.bits_per_pixel) % 32)) & 31
+                # rows always round to nearest 4 bytes
+                if excess_bits:
+                    bitstream.pop_bits(excess_bits)
                 rows.append(row)
             remainder = bitstream.remaining_buffer()
             rows.reverse()
@@ -159,11 +155,10 @@ class Ico(typing.NamedTuple):
                     row = []
                     for j in range(bmp_header.width):
                         row.append(bitstream.pop_bits(1))
-                    if round_to_dword:
-                        # rows always round to nearest 4 bytes
-                        excess_bits = 32 - ((bmp_header.width * 1) % 32)
-                        if excess_bits:
-                            bitstream.pop_bits(excess_bits)
+                    # rows always round to nearest 4 bytes
+                    excess_bits = (32 - ((bmp_header.width * 1) % 32)) & 31
+                    if excess_bits:
+                        bitstream.pop_bits(excess_bits)
                     rows.append(row)
                 rows.reverse()
                 for row in rows:

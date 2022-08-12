@@ -85,13 +85,14 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("ani_file")
     parser.add_argument("output_file")
+    parser.add_argument("-v", "--verbose", action='store_true', default=False)
 
     args = parser.parse_args()
 
     with open(args.ani_file, "rb") as file:
         contents = file.read()
 
-    ani = Ani(contents)
+    ani = Ani(contents, verbose=args.verbose)
 
     # now convert to gif
     with open(args.output_file, "wb") as outfile:
